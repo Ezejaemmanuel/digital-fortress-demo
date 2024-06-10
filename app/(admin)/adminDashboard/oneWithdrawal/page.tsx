@@ -3,7 +3,6 @@ import { FaCrown } from "react-icons/fa";
 import { WithdrawalStatus } from "@prisma/client";
 import { WithdrawalDetails } from "./aside";
 import NoWithdrawalIdFound from "./nowithdrawalIdFound";
-import { getWithdrawalDetails } from "./getwithdrawal";
 import NoData from "@/components/noData";
 
 async function WithdrawalPage({

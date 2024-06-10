@@ -1,12 +1,6 @@
 // app/api/generate-products/route.ts
 
 import { NextResponse } from "next/server";
-import { getUserAuth } from "@/lib/auth/utils";
-import { createInvestmentPlans } from "./generateInvestmentPlans";
-import { createMultipleTransactionHistories } from "./generateFakeTransactionhISTORY";
-import { generateUsersAndInvestments } from "./generateUser";
-import { generateVIP1InvestmentPlan } from "./generatesur";
-import { createRandomInvestmentsForUser } from "./generateInvestmentsForUser";
 
 interface Params {
   userId: string;
@@ -24,7 +18,7 @@ export async function GET(request: Request) {
 
   try {
     // await createInvestmentPlans();
-    await createRandomInvestmentsForUser();
+    // await createRandomInvestmentsForUser();
     return NextResponse.json({
       message: "Random products generated successfully.",
     });
