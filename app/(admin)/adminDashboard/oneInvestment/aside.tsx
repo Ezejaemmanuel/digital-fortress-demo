@@ -167,8 +167,8 @@ export const InvestmentDetails = ({ id }: { id: string }) => {
             <span>{plan.name}</span>
           </div>
           <div className="flex-1 min-w-[200px]">
-            <span className="font-semibold">Periodic Profit: </span>
-            <span>{plan.peridicProfit}%</span>
+            <span className="font-semibold">profit per day: </span>
+            <span>{plan.dailyProfit}%</span>
           </div>
           <div className="flex-1 min-w-[200px]">
             <span className="font-semibold">Total Profit: </span>

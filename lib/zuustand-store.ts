@@ -137,7 +137,84 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     })),
 }));
 
-import { persist, StorageValue } from "zustand/middleware";
+// import { persist, StorageValue } from "zustand/middleware";
+// import superjson from "superjson";
+
+// interface InvestmentData {
+//   userBalance: number;
+//   withdrawableBalance: number;
+//   totalProfit: number;
+//   totalWithdrawal: number;
+//   profitLast24Hours: number;
+// }
+
+// interface CachedData {
+//   data: InvestmentData;
+//   timestamp: number;
+//   cacheDuration: number;
+// }
+
+// interface CachedDataState {
+//   cachedData: CachedData | null;
+//   setCachedData: (data: InvestmentData, cacheDuration: number) => void;
+//   clearCachedData: () => void;
+// }
+
+// export const useCachedDataStore = create<CachedDataState>()(
+//   persist(
+//     (set) => ({
+//       cachedData: null,
+//       setCachedData: (data, cacheDuration) => {
+//         const timestamp = new Date().getTime();
+//         const dataWithExpiry = { data, timestamp, cacheDuration };
+//         const stringValue = superjson.stringify(dataWithExpiry);
+//         sessionStorage.setItem("investment-data-storage", stringValue);
+//         set({ cachedData: dataWithExpiry });
+//       },
+//       clearCachedData: () => {
+//         sessionStorage.removeItem("investment-data-storage");
+//         set({ cachedData: null });
+//       },
+//     }),
+//     {
+//       name: "investment-data-storage",
+//       storage: {
+//         getItem: (
+//           name: string
+//         ):
+//           | StorageValue<CachedDataState>
+//           | Promise<StorageValue<CachedDataState> | null>
+//           | null => {
+//           const item = sessionStorage.getItem(name);
+//           if (item) {
+//             const parsedItem = superjson.parse(
+//               item
+//             ) as StorageValue<CachedDataState> & {
+//               timestamp: number;
+//               cacheDuration: number;
+//             };
+//             const currentTime = new Date().getTime();
+//             if (currentTime - parsedItem.timestamp > parsedItem.cacheDuration) {
+//               sessionStorage.removeItem(name);
+//               return null;
+//             }
+//             return parsedItem;
+//           }
+//           return null;
+//         },
+//         setItem: (name, value) => {
+//           const stringValue = superjson.stringify(value);
+//           sessionStorage.setItem(name, stringValue);
+//         },
+//         removeItem: (name) => {
+//           sessionStorage.removeItem(name);
+//         },
+//       },
+//     }
+//   )
+// );
+
+import { StorageValue, persist } from "zustand/middleware";
 import superjson from "superjson";
 
 interface InvestmentData {
@@ -145,18 +222,21 @@ interface InvestmentData {
   withdrawableBalance: number;
   totalProfit: number;
   totalWithdrawal: number;
+  profitLast24Hours: number;
 }
 
 interface CachedData {
   data: InvestmentData;
   timestamp: number;
   cacheDuration: number;
+  lastRedirectTime: number | null; // Timestamp of the last redirect
 }
 
 interface CachedDataState {
   cachedData: CachedData | null;
   setCachedData: (data: InvestmentData, cacheDuration: number) => void;
   clearCachedData: () => void;
+  updateRedirectTime: (timestamp: number) => void;
 }
 
 export const useCachedDataStore = create<CachedDataState>()(
@@ -165,14 +245,34 @@ export const useCachedDataStore = create<CachedDataState>()(
       cachedData: null,
       setCachedData: (data, cacheDuration) => {
         const timestamp = new Date().getTime();
-        const dataWithExpiry = { data, timestamp, cacheDuration };
+        const lastRedirectTime = null;
+        const dataWithExpiry = {
+          data,
+          timestamp,
+          cacheDuration,
+          lastRedirectTime,
+        };
         const stringValue = superjson.stringify(dataWithExpiry);
-        sessionStorage.setItem("investment-data-storage", stringValue);
+        localStorage.setItem("investment-data-storage", stringValue);
         set({ cachedData: dataWithExpiry });
       },
       clearCachedData: () => {
-        sessionStorage.removeItem("investment-data-storage");
+        localStorage.removeItem("investment-data-storage");
         set({ cachedData: null });
+      },
+      updateRedirectTime: (timestamp) => {
+        set((state) => {
+          if (state.cachedData) {
+            const updatedData = {
+              ...state.cachedData,
+              lastRedirectTime: timestamp,
+            };
+            const stringValue = superjson.stringify(updatedData);
+            localStorage.setItem("investment-data-storage", stringValue);
+            return { cachedData: updatedData };
+          }
+          return state;
+        });
       },
     }),
     {
@@ -184,17 +284,18 @@ export const useCachedDataStore = create<CachedDataState>()(
           | StorageValue<CachedDataState>
           | Promise<StorageValue<CachedDataState> | null>
           | null => {
-          const item = sessionStorage.getItem(name);
+          const item = localStorage.getItem(name);
           if (item) {
             const parsedItem = superjson.parse(
               item
             ) as StorageValue<CachedDataState> & {
               timestamp: number;
               cacheDuration: number;
+              lastRedirectTime: number | null;
             };
             const currentTime = new Date().getTime();
             if (currentTime - parsedItem.timestamp > parsedItem.cacheDuration) {
-              sessionStorage.removeItem(name);
+              localStorage.removeItem(name);
               return null;
             }
             return parsedItem;
@@ -203,10 +304,10 @@ export const useCachedDataStore = create<CachedDataState>()(
         },
         setItem: (name, value) => {
           const stringValue = superjson.stringify(value);
-          sessionStorage.setItem(name, stringValue);
+          localStorage.setItem(name, stringValue);
         },
         removeItem: (name) => {
-          sessionStorage.removeItem(name);
+          localStorage.removeItem(name);
         },
       },
     }

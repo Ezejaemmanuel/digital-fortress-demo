@@ -39,19 +39,19 @@ export const InvestmentDashboard: React.FC<{
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-32 p-4 mx-auto">
       <DashboardCard
         label="Available Balance"
-        balance={`${formatCurrency(data.userBalance)}`}
+        balance={`${formatCurrency(data?.userBalance || 0)}`}
       />
       <DashboardCard
         label="Withdrawable Balance"
-        balance={`${formatCurrency(data.withdrawableBalance)}`}
+        balance={`${formatCurrency(data?.withdrawableBalance || 0)}`}
       />
       <DashboardCard
         label="Profits"
-        balance={`${formatCurrency(data.totalProfit)}`}
+        balance={`${formatCurrency(data?.totalProfit || 0)}`}
       />
       <DashboardCard
         label="Total Withdrawal"
-        balance={`${formatCurrency(data.totalWithdrawal)}`}
+        balance={`${formatCurrency(data?.totalWithdrawal || 0)}`}
       />
     </div>
   );

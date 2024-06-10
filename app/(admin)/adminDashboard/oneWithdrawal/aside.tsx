@@ -29,9 +29,8 @@ export const WithdrawalDetails: React.FC<WithdrawalDetailsProps> = ({ id }) => {
     user,
     amount,
     status,
-    accountNumber,
-    accountName,
-    bankName,
+    walletAddress,
+    cryptoType,
   } = data;
 
   return (
@@ -65,17 +64,14 @@ export const WithdrawalDetails: React.FC<WithdrawalDetailsProps> = ({ id }) => {
             <span>${amount}</span>
           </div>
           <div className="flex justify-between">
-            <span className="font-semibold">Account Number:</span>
-            <span>{accountNumber ?? "N/A"}</span>
+            <span className="font-semibold">CryptoType:</span>
+            <span>{cryptoType ?? "N/A"}</span>
           </div>
           <div className="flex justify-between">
             <span className="font-semibold">Account Name:</span>
-            <span>{accountName ?? "N/A"}</span>
+            <span>{walletAddress ?? "N/A"}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="font-semibold">Bank Name:</span>
-            <span>{bankName ?? "N/A"}</span>
-          </div>
+
           <div className="flex justify-between">
             <span className="font-semibold">Created At:</span>
             <span>({formatDateFromNow(new Date(createdAt))})</span>

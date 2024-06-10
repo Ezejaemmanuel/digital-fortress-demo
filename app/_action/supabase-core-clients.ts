@@ -10,14 +10,15 @@
 //     "Supabase URL and Anon Key must be set in environment variables."
 //   );
 // }
+
 // function generateUuid(): string {
 //   return uuidv4();
 // }
 
 // const supabase = supabaseBrowser();
 // const REFERRAL_BONUS = 300;
-
 // const PROFIT_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+// const WITHDRAWAL_ELIGIBILITY_DAYS = 30;
 
 // export async function createUserTracker(userId: string) {
 //   try {
@@ -29,7 +30,6 @@
 
 //     if (error && error.code !== "PGRST116") {
 //       console.error("Error fetching user tracker:", error);
-//       // return;
 //     }
 
 //     if (!userTracker) {
@@ -39,6 +39,8 @@
 //         userId,
 //         lastProfitUpdate: new Date(0).toISOString(),
 //         lastWithdrawal: new Date().toISOString(),
+//         userBalance: 0,
+//         withdrawableBalance: 0,
 //       });
 
 //       if (insertError) {
@@ -80,7 +82,8 @@
 //   if (userTrackerError) {
 //     console.error("Error fetching user tracker:", userTrackerError);
 //     return {
-//       balance: 0,
+//       userBalance: 0,
+//       withdrawableBalance: 0,
 //       totalProfit: 0,
 //       totalWithdrawal: 0,
 //     };
@@ -91,11 +94,13 @@
 //     await createUserTracker(userId);
 //     console.log(`userTracker created for user ${userId}`);
 //     return {
-//       balance: 0,
+//       userBalance: 0,
+//       withdrawableBalance: 0,
 //       totalProfit: 0,
 //       totalWithdrawal: 0,
 //     };
 //   }
+
 //   const now = new Date().toISOString();
 //   const lastRun = userTracker.lastProfitUpdate;
 //   const diffTime = new Date(now).getTime() - new Date(lastRun).getTime();
@@ -105,6 +110,7 @@
 //   console.log(`Time difference: ${diffTime} milliseconds`);
 
 //   let totalProfit = 0;
+//   let totalWithdrawableProfit = 0;
 //   if (userTracker.user) {
 //     for (const investment of userTracker.user.investments) {
 //       console.log(`Processing investment ${investment.id}`);
@@ -162,6 +168,13 @@
 //         const profit = plan.dailyProfit * profitCycles;
 //         totalProfit += profit;
 
+//         if (
+//           endDate - startDate >=
+//           WITHDRAWAL_ELIGIBILITY_DAYS * PROFIT_INTERVAL
+//         ) {
+//           totalWithdrawableProfit += profit;
+//         }
+
 //         console.log(`Profit for investment ${investment.id}: ${profit}`);
 //       } else {
 //         console.log(`No profit cycles for investment ${investment.id}`);
@@ -170,6 +183,7 @@
 //   } else {
 //     console.log("usertracker is null");
 //   }
+
 //   console.log(`Total profit: ${totalProfit}`);
 //   let referralBonus = 0;
 //   if (userTracker.user && userTracker.user.referredUsers) {
@@ -181,15 +195,21 @@
 //   }
 
 //   console.log(`Referral bonus: ${referralBonus}`);
-//   const newBalance = totalProfit + referralBonus - userTracker.totalWithdrawal;
-//   console.log(`New balance: ${newBalance}`);
+//   const newUserBalance =
+//     totalProfit + referralBonus - userTracker.totalWithdrawal;
+//   const newWithdrawableBalance =
+//     totalWithdrawableProfit + referralBonus - userTracker.totalWithdrawal;
 
-//   // Update the user tracker with the new balance and referral bonus
+//   console.log(`New user balance: ${newUserBalance}`);
+//   console.log(`New withdrawable balance: ${newWithdrawableBalance}`);
+
+//   // Update the user tracker with the new balances and referral bonus
 //   const { error: updateError } = await supabase
 //     .from("UserTracker")
 //     .update({
 //       totalProfit: totalProfit,
-//       balance: newBalance,
+//       balance: newUserBalance,
+//       withdrawableBalance: newWithdrawableBalance,
 //       lastProfitUpdate: new Date().toISOString(),
 //     })
 //     .eq("id", userTracker.id);
@@ -197,7 +217,8 @@
 //   if (updateError) {
 //     console.error("Error updating user tracker:", updateError);
 //     return {
-//       balance: userTracker.balance,
+//       userBalance: userTracker.balance,
+//       withdrawableBalance: userTracker.withdrawableBalance,
 //       totalProfit: userTracker.totalProfit,
 //       totalWithdrawal: userTracker.totalWithdrawal,
 //     };
@@ -212,16 +233,8 @@
 //   if (fetchError) {
 //     console.error("Error fetching updated user tracker:", fetchError);
 //     return {
-//       balance: userTracker.balance,
-//       totalProfit: userTracker.totalProfit,
-//       totalWithdrawal: userTracker.totalWithdrawal,
-//     };
-//   }
-
-//   if (updateError) {
-//     console.error("Error updating user tracker:", updateError);
-//     return {
-//       balance: userTracker.balance,
+//       userBalance: userTracker.balance,
+//       withdrawableBalance: userTracker.withdrawableBalance,
 //       totalProfit: userTracker.totalProfit,
 //       totalWithdrawal: userTracker.totalWithdrawal,
 //     };
@@ -245,7 +258,8 @@
 //   console.log(`Updated user tracker: ${JSON.stringify(updatedUserTracker)}`);
 
 //   return {
-//     balance: updatedUserTracker.balance,
+//     userBalance: updatedUserTracker.balance,
+//     withdrawableBalance: updatedUserTracker.withdrawableBalance,
 //     totalProfit: updatedUserTracker.totalProfit,
 //     totalWithdrawal: updatedUserTracker.totalWithdrawal,
 //   };
@@ -268,8 +282,8 @@
 //     throw new Error("User tracker not found");
 //   }
 
-//   if (amount > userTracker.balance) {
-//     throw new Error("Insufficient balance");
+//   if (amount > userTracker.withdrawableBalance) {
+//     throw new Error("Insufficient withdrawable balance");
 //   }
 
 //   const now = new Date().toISOString();
@@ -278,30 +292,58 @@
 //     .from("UserTracker")
 //     .update({
 //       totalWithdrawal: userTracker.totalWithdrawal + amount,
-//       balance: userTracker.balance - amount,
+//       userBalance: userTracker.balance - amount,
+//       withdrawableBalance: userTracker.withdrawableBalance - amount,
 //       lastWithdrawal: now,
 //     })
 //     .eq("id", userTracker.id);
 
 //   if (updateError) {
 //     console.error("Error updating user tracker:", updateError);
-//     throw new Error("Failed to process withdrawal");
+//     throw new Error("Failed to update user tracker");
 //   }
 
-//   const { error: withdrawalError } = await supabase.from("Withdrawal").insert({
-//     id: generateUuid(),
-//     userId,
-//     amount,
-//     walletAddress: walletAddress,
-//     cryptoType: cryptoType,
-//     status: "UNCONFIRMED",
-//     updatedAt: now,
-//   });
+//   const { error: transactionError } = await supabase
+//     .from("TransactionHistory")
+//     .insert({
+//       id: generateUuid(),
+//       type: "WITHDRAWAL",
+//       amount: amount,
+//       description: "User withdrawal",
+//       userId: userTracker.userId,
+//       walletAddress: walletAddress,
+//       cryptoType: cryptoType,
+//       updatedAt: now,
+//     });
 
-//   if (withdrawalError) {
-//     console.error("Error creating withdrawal:", withdrawalError);
-//     throw new Error("Failed to process withdrawal");
+//   if (transactionError) {
+//     console.error("Error creating transaction history:", transactionError);
+//     throw new Error("Failed to create transaction history");
 //   }
+
+//   const { data: updatedUserTracker, error: fetchError } = await supabase
+//     .from("UserTracker")
+//     .select("*")
+//     .eq("id", userTracker.id)
+//     .single();
+
+//   if (fetchError) {
+//     console.error("Error fetching updated user tracker:", fetchError);
+//     throw new Error("Failed to fetch updated user tracker");
+//   }
+
+//   console.log(
+//     `Updated user tracker after withdrawal: ${JSON.stringify(
+//       updatedUserTracker
+//     )}`
+//   );
+
+//   return {
+//     userBalance: updatedUserTracker.balance,
+//     withdrawableBalance: updatedUserTracker.withdrawableBalance,
+//     totalProfit: updatedUserTracker.totalProfit,
+//     totalWithdrawal: updatedUserTracker.totalWithdrawal,
+//   };
 // }
 
 import { supabaseBrowser } from "@/lib/supabaseClient";
@@ -392,6 +434,7 @@ export async function processInvestments(
       withdrawableBalance: 0,
       totalProfit: 0,
       totalWithdrawal: 0,
+      profitLast24Hours: 0,
     };
   }
 
@@ -404,6 +447,7 @@ export async function processInvestments(
       withdrawableBalance: 0,
       totalProfit: 0,
       totalWithdrawal: 0,
+      profitLast24Hours: 0,
     };
   }
 
@@ -417,6 +461,10 @@ export async function processInvestments(
 
   let totalProfit = 0;
   let totalWithdrawableProfit = 0;
+  let profitLast24Hours = 0;
+
+  const twentyFourHoursAgo = new Date(now).getTime() - PROFIT_INTERVAL;
+
   if (userTracker.user) {
     for (const investment of userTracker.user.investments) {
       console.log(`Processing investment ${investment.id}`);
@@ -474,6 +522,10 @@ export async function processInvestments(
         const profit = plan.dailyProfit * profitCycles;
         totalProfit += profit;
 
+        if (startDate >= twentyFourHoursAgo) {
+          profitLast24Hours += profit;
+        }
+
         if (
           endDate - startDate >=
           WITHDRAWAL_ELIGIBILITY_DAYS * PROFIT_INTERVAL
@@ -527,6 +579,7 @@ export async function processInvestments(
       withdrawableBalance: userTracker.withdrawableBalance,
       totalProfit: userTracker.totalProfit,
       totalWithdrawal: userTracker.totalWithdrawal,
+      profitLast24Hours: 0,
     };
   }
 
@@ -543,6 +596,7 @@ export async function processInvestments(
       withdrawableBalance: userTracker.withdrawableBalance,
       totalProfit: userTracker.totalProfit,
       totalWithdrawal: userTracker.totalWithdrawal,
+      profitLast24Hours: 0,
     };
   }
 
@@ -568,6 +622,7 @@ export async function processInvestments(
     withdrawableBalance: updatedUserTracker.withdrawableBalance,
     totalProfit: updatedUserTracker.totalProfit,
     totalWithdrawal: updatedUserTracker.totalWithdrawal,
+    profitLast24Hours: profitLast24Hours,
   };
 }
 
@@ -585,41 +640,61 @@ export async function processWithdrawal(
 
   if (userTrackerError) {
     console.error("Error fetching user tracker:", userTrackerError);
+    throw new Error("Failed to fetch user tracker");
+  }
+
+  if (!userTracker) {
+    console.log(`userTracker not found for user ${userId}`);
     throw new Error("User tracker not found");
   }
 
-  if (amount > userTracker.withdrawableBalance) {
-    throw new Error("Insufficient withdrawable balance");
+  const lastWithdrawalDate = new Date(userTracker.lastWithdrawal);
+  const currentDate = new Date();
+  const daysSinceLastWithdrawal = Math.floor(
+    (currentDate.getTime() - lastWithdrawalDate.getTime()) /
+      (24 * 60 * 60 * 1000)
+  );
+
+  if (daysSinceLastWithdrawal < WITHDRAWAL_ELIGIBILITY_DAYS) {
+    throw new Error(
+      `Withdrawals are only allowed once every ${WITHDRAWAL_ELIGIBILITY_DAYS} days.`
+    );
   }
 
-  const now = new Date().toISOString();
+  if (amount > userTracker.withdrawableBalance) {
+    throw new Error("Requested amount exceeds withdrawable balance.");
+  }
 
+  // Deduct the amount from the withdrawable balance
+  const newWithdrawableBalance = userTracker.withdrawableBalance - amount;
+
+  // Update user tracker with new balance and withdrawal date
   const { error: updateError } = await supabase
     .from("UserTracker")
     .update({
+      withdrawableBalance: newWithdrawableBalance,
+      lastWithdrawal: currentDate.toISOString(),
       totalWithdrawal: userTracker.totalWithdrawal + amount,
-      userBalance: userTracker.balance - amount,
-      withdrawableBalance: userTracker.withdrawableBalance - amount,
-      lastWithdrawal: now,
     })
     .eq("id", userTracker.id);
 
   if (updateError) {
     console.error("Error updating user tracker:", updateError);
-    throw new Error("Failed to update user tracker");
+    throw new Error("Failed to update user tracker after withdrawal");
   }
 
+  // Add the transaction to the transaction history
   const { error: transactionError } = await supabase
     .from("TransactionHistory")
     .insert({
       id: generateUuid(),
       type: "WITHDRAWAL",
       amount: amount,
-      description: "User withdrawal",
+      description: "Withdrawal",
       userId: userTracker.userId,
+      updatedAt: currentDate.toISOString(),
       walletAddress: walletAddress,
       cryptoType: cryptoType,
-      updatedAt: now,
     });
 
   if (transactionError) {
@@ -627,27 +702,7 @@ export async function processWithdrawal(
     throw new Error("Failed to create transaction history");
   }
 
-  const { data: updatedUserTracker, error: fetchError } = await supabase
-    .from("UserTracker")
-    .select("*")
-    .eq("id", userTracker.id)
-    .single();
-
-  if (fetchError) {
-    console.error("Error fetching updated user tracker:", fetchError);
-    throw new Error("Failed to fetch updated user tracker");
-  }
-
-  console.log(
-    `Updated user tracker after withdrawal: ${JSON.stringify(
-      updatedUserTracker
-    )}`
-  );
-
   return {
-    userBalance: updatedUserTracker.balance,
-    withdrawableBalance: updatedUserTracker.withdrawableBalance,
-    totalProfit: updatedUserTracker.totalProfit,
-    totalWithdrawal: updatedUserTracker.totalWithdrawal,
+    withdrawableBalance: newWithdrawableBalance,
   };
 }

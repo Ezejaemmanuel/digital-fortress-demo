@@ -51,6 +51,7 @@
 // }
 
 // CountUp.tsx
+
 "use client";
 import { useCountUp } from "react-countup";
 import { useRef } from "react";
