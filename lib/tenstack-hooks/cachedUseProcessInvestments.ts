@@ -201,12 +201,8 @@
 
 // export default useProcessInvestments;
 
-import { useSuspenseQuery } from "@tanstack/react-query";
 import { processInvestments } from "@/app/_action/supabase-core-clients";
-import { formatDistanceToNow } from "date-fns";
-import { useRouter } from "next/navigation";
 import { useCachedDataStore } from "../zuustand-store"; // Adjust the import path as necessary
-import { useState, useEffect } from "react";
 
 const fetchProcessInvestments = async ({
   queryKey,
@@ -216,9 +212,41 @@ const fetchProcessInvestments = async ({
   const [, userId, runUntimed] = queryKey;
   console.log("fetchProcessInvestments called with:", { userId, runUntimed });
 
+  const state = useCachedDataStore.getState();
+  const { cachedData, setCachedData, clearCachedData } = state;
+
+  if (cachedData) {
+    const currentTime = new Date().getTime();
+    const cacheAge = currentTime - cachedData.timestamp;
+
+    if (cacheAge < cachedData.cacheDuration) {
+      // If cached data is within the cache duration, use it
+      console.log("Using cached data");
+      return cachedData.data;
+    } else {
+      // If cached data is older than the cache duration, clear the cache
+      console.log("Clearing outdated cache");
+      clearCachedData();
+    }
+  }
+
   try {
     const result = await processInvestments(userId, runUntimed);
     console.log("processInvestments result:", result);
+
+    // Determine cache duration based on data
+    const isAnyNonZero =
+      result.userBalance !== 0 ||
+      result.withdrawableBalance !== 0 ||
+      result.totalProfit !== 0 ||
+      result.totalWithdrawal !== 0;
+    const cacheDuration = isAnyNonZero ? 5 * 60 * 1000 : 30 * 1000;
+    console.log("Cache duration set to:", cacheDuration);
+
+    // Store data in Zustand cache with the determined duration
+    setCachedData(result, cacheDuration);
+    console.log("Data cached with duration:", { result, cacheDuration });
+
     return result;
   } catch (error: any) {
     console.error("Error in processInvestments:", error);
@@ -230,39 +258,18 @@ const fetchProcessInvestments = async ({
   }
 };
 
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { formatDistanceToNow } from "date-fns";
+import { useRouter } from "next/navigation";
+// Adjust the import path as necessary
+
 const useProcessInvestments = (userId: string, runUntimed?: boolean) => {
   console.log("useProcessInvestments called with:", { userId, runUntimed });
 
-  const { cachedData, setCachedData, clearCachedData, updateRedirectTime } =
-    useCachedDataStore();
-  const [isCacheValid, setIsCacheValid] = useState(false);
+  const state = useCachedDataStore.getState();
+  const { cachedData, updateRedirectTime } = state;
   const router = useRouter();
-
-  useEffect(() => {
-    if (cachedData) {
-      const currentTime = new Date().getTime();
-      const cacheAge = currentTime - cachedData.timestamp;
-
-      if (cacheAge < cachedData.cacheDuration) {
-        setIsCacheValid(true);
-
-        // Check profit and redirect if conditions are met
-        const profitLast24Hours = cachedData.data.profitLast24Hours;
-        const lastRedirectTime = cachedData.lastRedirectTime || 0;
-        const fourHours = 4 * 60 * 60 * 1000;
-
-        if (
-          profitLast24Hours > 0 &&
-          currentTime - lastRedirectTime > fourHours
-        ) {
-          updateRedirectTime(currentTime);
-          router.push(`/dashboard/congratulations?profit=${profitLast24Hours}`);
-        }
-      } else {
-        clearCachedData();
-      }
-    }
-  }, [cachedData, router, clearCachedData, updateRedirectTime]);
+  console.log("Initial cachedData:", cachedData);
 
   const queryResult = useSuspenseQuery({
     queryKey: ["processInvestments-query", userId, runUntimed],
@@ -270,43 +277,18 @@ const useProcessInvestments = (userId: string, runUntimed?: boolean) => {
   });
   console.log("Query result:", queryResult);
 
-  useEffect(() => {
-    if (!isCacheValid) {
-      const data = queryResult.data;
-      console.log("Fetched data:", data);
+  // Check profit and redirect if conditions are met
+  const currentTime = new Date().getTime();
+  const profitLast24Hours = queryResult.data.profitLast24Hours;
+  const lastRedirectTime = cachedData?.lastRedirectTime || 0;
+  const fourHours = 4 * 60 * 60 * 1000;
 
-      const isAnyNonZero =
-        data.userBalance !== 0 ||
-        data.withdrawableBalance !== 0 ||
-        data.totalProfit !== 0 ||
-        data.totalWithdrawal !== 0;
-      const cacheDuration = isAnyNonZero ? 5 * 60 * 1000 : 30 * 1000;
-      console.log("Cache duration set to:", cacheDuration);
+  if (profitLast24Hours > 0 && currentTime - lastRedirectTime > fourHours) {
+    updateRedirectTime(currentTime);
+    router.push(`/dashboard/congratulations?profit=${profitLast24Hours}`);
+  }
 
-      setCachedData(data, cacheDuration);
-
-      const currentTime = new Date().getTime();
-      const profitLast24Hours = data.profitLast24Hours;
-      const lastRedirectTime = cachedData?.lastRedirectTime || 0;
-      const fourHours = 4 * 60 * 60 * 1000;
-
-      if (profitLast24Hours > 0 && currentTime - lastRedirectTime > fourHours) {
-        updateRedirectTime(currentTime);
-        router.push(`/dashboard/congratulations?profit=${profitLast24Hours}`);
-      }
-    }
-  }, [
-    isCacheValid,
-    queryResult.data,
-    setCachedData,
-    cachedData?.lastRedirectTime,
-    router,
-    updateRedirectTime,
-  ]);
-
-  return isCacheValid
-    ? { data: cachedData?.data, isLoading: false, error: null }
-    : queryResult;
+  return queryResult;
 };
 
 export default useProcessInvestments;
