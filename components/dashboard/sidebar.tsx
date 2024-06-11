@@ -317,11 +317,6 @@ const Sidebar: React.FC = () => {
 
       {width! < 786 ? (
         <Sheet open={isOpen} onOpenChange={toggleSidebar}>
-          <SheetTrigger asChild>
-            <button className="fixed top-4 left-4 z-50 p-2 bg-blue-600 text-white rounded-md">
-              Open Menu
-            </button>
-          </SheetTrigger>
           <SheetContent side="left" className="w-72 bg-neutral-950 p-4">
             <SheetHeader>
               <SheetTitle>Menu</SheetTitle>

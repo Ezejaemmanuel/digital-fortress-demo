@@ -9,8 +9,8 @@ const MenuIcon: React.FC = () => {
   const { width } = useWindowSize();
 
   return (
-    <div className="bg-red-500 " onClick={toggleSidebar}>
-      Menu
+    <div className=" " onClick={toggleSidebar}>
+      <Menu />
     </div>
   );
 };
